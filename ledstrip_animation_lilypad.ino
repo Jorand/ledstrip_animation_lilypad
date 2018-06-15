@@ -6,6 +6,7 @@
 #include <EEPROM.h>
 
 #define PIN 2
+#define NUM_LEDS 19
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -15,7 +16,7 @@
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRBW + NEO_KHZ800);
 
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
@@ -23,6 +24,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, PIN, NEO_GRB + NEO_KHZ800);
 // on a live circuit...if you must, connect GND first.
 
 uint8_t prog = 0;
+int nb_prog = 11;
 
 void setup() {
   // This is for Trinket 5V 16MHz, you can remove these three lines if you are not using a Trinket
@@ -37,7 +39,7 @@ void setup() {
   strip.show(); // Initialize all pixels to 'off'
 
   prog = EEPROM.read(0);
-  if (prog >= 6)
+  if (prog >= nb_prog)
     prog = 0;
   else
     prog++;
@@ -89,6 +91,37 @@ void loop() {
      case 6:
       theaterChaseRainbow(50);
       break;
+     case 7:
+      CylonBounce(127, 0, 0, 4, 30, 50);
+      break;
+     case 8:
+      RunningLights(0,0,127, 50);
+      break;
+     case 9:
+      Fire(55,120,15);
+      break;
+     case 10:
+        for (int color=0; color<255; color++) {
+            for (int i=0; i<strip.numPixels(); i++) {
+              strip.setPixelColor(i, Wheel(color));
+             }
+          strip.show();
+          delay(10);
+        }
+      break;
+     case 11:
+      colorWipe(strip.Color(0,0,0), 25); // Black
+      colorWipe(strip.Color(64, 0, 0), 100); // Red
+      colorWipe(strip.Color(0, 64, 0), 100); // Green
+      colorWipe(strip.Color(0, 0, 64), 100); // Blue
+      colorWave(75);
+      colorWipe(strip.Color(0,0,0), 100); // Black
+      rainbow(15);
+      colorWipe(strip.Color(0,0,0), 100); // Black
+      rainbowCycle(15);
+      colorWipe(strip.Color(0,0,0), 100); // Black
+      colorWave(30);
+      break;
   }
   strip.show();
 }
@@ -125,6 +158,59 @@ void rainbowCycle(uint8_t wait) {
     strip.show();
     delay(wait);
   }
+}
+
+//https://gist.github.com/dougalcampbell/7243998
+/**
+ *      ^   ^   ^  
+ * ~~~~~ ColorWave ~~~~~
+ *        V   V   V   
+ */
+void colorWave(uint8_t wait) {
+  int i, j, stripsize, cycle;
+  float ang, rsin, gsin, bsin, offset;
+
+  static int tick = 0;
+  
+  stripsize = strip.numPixels();
+  cycle = stripsize * 25; // times around the circle...
+
+  while (++tick % cycle) {
+    offset = map2PI(tick);
+
+    for (i = 0; i < stripsize; i++) {
+      ang = map2PI(i) - offset;
+      rsin = sin(ang);
+      gsin = sin(2.0 * ang / 3.0 + map2PI(int(stripsize/6)));
+      bsin = sin(4.0 * ang / 5.0 + map2PI(int(stripsize/3)));
+      strip.setPixelColor(i, strip.Color(trigScale(rsin), trigScale(gsin), trigScale(bsin)));
+    }
+
+    strip.show();
+    delay(wait);
+  }
+
+}
+
+/**
+ * Scale a value returned from a trig function to a byte value.
+ * [-1, +1] -> [0, 254] 
+ * Note that we ignore the possible value of 255, for efficiency,
+ * and because nobody will be able to differentiate between the
+ * brightness levels of 254 and 255.
+ */
+byte trigScale(float val) {
+  val += 1.0; // move range to [0.0, 2.0]
+  val *= 127.0; // move range to [0.0, 254.0]
+
+  return int(val) & 255;
+}
+
+/**
+ * Map an integer so that [0, striplength] -> [0, 2PI]
+ */
+float map2PI(int i) {
+  return PI*2.0*float(i) / float(strip.numPixels());
 }
 
 //Theatre-style crawling lights.
@@ -176,4 +262,115 @@ uint32_t Wheel(byte WheelPos) {
   }
   WheelPos -= 170;
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+}
+
+void setAll(uint32_t c) {
+  for(int i = 0; i < NUM_LEDS; i++ ) {
+    strip.setPixelColor(i, c);
+  }
+  strip.show();
+}
+
+void CylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, int ReturnDelay){
+
+  for(int i = 0; i < NUM_LEDS-EyeSize-2; i++) {
+    setAll(strip.Color(0, 0, 0, 0));
+    strip.setPixelColor(i, red/10, green/10, blue/10);
+    for(int j = 1; j <= EyeSize; j++) {
+      strip.setPixelColor(i+j, red, green, blue); 
+    }
+    strip.setPixelColor(i+EyeSize+1, red/10, green/10, blue/10);
+    strip.show();
+    delay(SpeedDelay);
+  }
+
+  delay(ReturnDelay);
+
+  for(int i = NUM_LEDS-EyeSize-2; i > 0; i--) {
+    setAll(strip.Color(0, 0, 0, 0));
+    strip.setPixelColor(i, red/10, green/10, blue/10);
+    for(int j = 1; j <= EyeSize; j++) {
+      strip.setPixelColor(i+j, red, green, blue); 
+    }
+    strip.setPixelColor(i+EyeSize+1, red/10, green/10, blue/10);
+    strip.show();
+    delay(SpeedDelay);
+  }
+  
+  delay(ReturnDelay);
+}
+
+void RunningLights(byte red, byte green, byte blue, int WaveDelay) {
+  int Position=0;
+  
+  for(int i=0; i<NUM_LEDS*2; i++)
+  {
+      Position++; // = 0; //Position + Rate;
+      for(int i=0; i<NUM_LEDS; i++) {
+        // sine wave, 3 offset waves make a rainbow!
+        //float level = sin(i+Position) * 127 + 128;
+        //setPixel(i,level,0,0);
+        //float level = sin(i+Position) * 127 + 128;
+        strip.setPixelColor(i,((sin(i+Position) * 127 + 128)/255)*red,
+                   ((sin(i+Position) * 127 + 128)/255)*green,
+                   ((sin(i+Position) * 127 + 128)/255)*blue);
+      }
+      
+      strip.show();
+      delay(WaveDelay);
+  }
+}
+
+void Fire(int Cooling, int Sparking, int SpeedDelay) {
+  static byte heat[NUM_LEDS];
+  int cooldown;
+  
+  // Step 1.  Cool down every cell a little
+  for( int i = 0; i < NUM_LEDS; i++) {
+    cooldown = random(0, ((Cooling * 10) / NUM_LEDS) + 2);
+    
+    if(cooldown>heat[i]) {
+      heat[i]=0;
+    } else {
+      heat[i]=heat[i]-cooldown;
+    }
+  }
+  
+  // Step 2.  Heat from each cell drifts 'up' and diffuses a little
+  for( int k= NUM_LEDS - 1; k >= 2; k--) {
+    heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2]) / 3;
+  }
+    
+  // Step 3.  Randomly ignite new 'sparks' near the bottom
+  if( random(255) < Sparking ) {
+    int y = random(7);
+    heat[y] = heat[y] + random(160,255);
+    //heat[y] = random(160,255);
+  }
+
+  // Step 4.  Convert heat to LED colors
+  for( int j = 0; j < NUM_LEDS; j++) {
+    setPixelHeatColor(j, heat[j] );
+  }
+
+  strip.show();
+  delay(SpeedDelay);
+}
+
+void setPixelHeatColor (int Pixel, byte temperature) {
+  // Scale 'heat' down from 0-255 to 0-191
+  byte t192 = round((temperature/255.0)*191);
+ 
+  // calculate ramp up from
+  byte heatramp = t192 & 0x3F; // 0..63
+  heatramp <<= 2; // scale up to 0..252
+ 
+  // figure out which third of the spectrum we're in:
+  if( t192 > 0x80) {                     // hottest
+    strip.setPixelColor(Pixel, 255, 255, heatramp);
+  } else if( t192 > 0x40 ) {             // middle
+    strip.setPixelColor(Pixel, 255, heatramp, 0);
+  } else {                               // coolest
+    strip.setPixelColor(Pixel, heatramp, 0, 0);
+  }
 }
