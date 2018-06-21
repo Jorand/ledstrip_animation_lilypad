@@ -5,7 +5,9 @@
 
 #include <EEPROM.h>
 
-#define PIN 2
+#define PIN_RING 2
+#define PIN_LEFT 3
+#define PIN_RIGHT 9
 #define NUM_LEDS 19
 
 // Parameter 1 = number of pixels in strip
@@ -16,15 +18,20 @@
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRBW + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN_RING, NEO_GRBW + NEO_KHZ800);
 
+Adafruit_NeoPixel stripLeft = Adafruit_NeoPixel(NUM_LEDS, PIN_LEFT, NEO_GRBW + NEO_KHZ800);
+Adafruit_NeoPixel stripRight = Adafruit_NeoPixel(NUM_LEDS, PIN_RIGHT, NEO_GRBW + NEO_KHZ800);
+  
 // IMPORTANT: To reduce NeoPixel burnout risk, add 1000 uF capacitor across
 // pixel power leads, add 300 - 500 Ohm resistor on first pixel's data input
 // and minimize distance between Arduino and first pixel.  Avoid connecting
 // on a live circuit...if you must, connect GND first.
 
 uint8_t prog = 0;
-int nb_prog = 11;
+int nb_prog = 10;
+
+uint32_t lastSideColor = 0;
 
 void setup() {
   // This is for Trinket 5V 16MHz, you can remove these three lines if you are not using a Trinket
@@ -36,7 +43,14 @@ void setup() {
   #define max_led 100
 
   strip.begin();
+  stripLeft.begin();
+  stripRight.begin();
+  
   strip.show(); // Initialize all pixels to 'off'
+  stripLeft.show();
+  stripRight.show();
+
+  setSideColor(strip.Color(100, 0, 200, 0));
 
   prog = EEPROM.read(0);
   if (prog >= nb_prog)
@@ -44,37 +58,23 @@ void setup() {
   else
     prog++;
   EEPROM.write(0,prog);
-//  prog = 0;
+  //prog = 8;
   Serial.begin(115200);
   Serial.println(prog);
 }
 
+
 void loop() {
+  
   switch (prog) {
     case 0:
-      for (int v=0;v<125;v++) {
-        for (int i=0; i < 10; i++) {
-          strip.setPixelColor(i, strip.Color(0, 0, max_led + v));
-          strip.setPixelColor(i+10, strip.Color(max_led+v, max_led+v, max_led+v));
-          strip.setPixelColor(i+20, strip.Color(max_led+v, 0, 0));
-        }
-        strip.show();
-        delay(10);
-      }
-      for (int v=0;v<125;v++) {
-        for (int i=0; i < 10; i++) {
-          strip.setPixelColor(i, strip.Color(0, 0, max_led+127-v));
-          strip.setPixelColor(i+10, strip.Color(max_led+v, max_led+127-v, max_led+127-v));
-          strip.setPixelColor(i+20, strip.Color(max_led+127-v, 0, 0));
-        }
-        strip.show();
-        delay(10);
-      }
+      setAllC(strip.Color(0, 0, 255, 0));
       break;
     case 1:
-       colorWipe(strip.Color(0, 0, 127), 50); // Red
-       colorWipe(strip.Color(127, 127, 127), 50); // Green
-       colorWipe(strip.Color(127, 0, 0), 50); // Blue
+      // TODO changer couleurs
+       colorWipe(strip.Color(0, 0, 255), 50); // Red
+       colorWipe(strip.Color(255, 255, 255), 50); // Green
+       colorWipe(strip.Color(255, 0, 0), 50); // Blue
        break;
      case 2:
       rainbow(20);
@@ -86,16 +86,18 @@ void loop() {
       rainbowCycle(20);
       break;
      case 5:
-      rainbowCycle(20);
+      rainbowCycle(5);
       break;
      case 6:
       theaterChaseRainbow(50);
       break;
      case 7:
-      CylonBounce(127, 0, 0, 4, 30, 50);
+      // 380 + changement couleur
+      CylonBounce(255, 0, 0, 4, 30, 50);
       break;
      case 8:
-      RunningLights(0,0,127, 50);
+      // changer la couleur 
+      RunningLights(0,0,255, 50);
       break;
      case 9:
       Fire(55,120,15);
@@ -110,11 +112,7 @@ void loop() {
         }
       break;
      case 11:
-      colorWipe(strip.Color(0,0,0), 25); // Black
-      colorWipe(strip.Color(64, 0, 0), 100); // Red
-      colorWipe(strip.Color(0, 64, 0), 100); // Green
-      colorWipe(strip.Color(0, 0, 64), 100); // Blue
-      colorWave(75);
+      colorWave(30);
       colorWipe(strip.Color(0,0,0), 100); // Black
       rainbow(15);
       colorWipe(strip.Color(0,0,0), 100); // Black
@@ -126,8 +124,19 @@ void loop() {
   strip.show();
 }
 
+void setSideColor(uint32_t c) {
+
+  if(c != lastSideColor) {
+    lastSideColor = c;
+    
+    setAll(stripLeft, c);
+    setAll(stripRight, c);
+  }
+}
+
 // Fill the dots one after the other with a color
 void colorWipe(uint32_t c, uint8_t wait) {
+  
   for(uint16_t i=0; i<strip.numPixels(); i++) {
     strip.setPixelColor(i, c);
     strip.show();
@@ -264,7 +273,14 @@ uint32_t Wheel(byte WheelPos) {
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
 
-void setAll(uint32_t c) {
+void setAll(Adafruit_NeoPixel s, uint32_t c) {
+  for(int i = 0; i < NUM_LEDS; i++ ) {
+    s.setPixelColor(i, c);
+  }
+  s.show();
+}
+
+void setAllC(uint32_t c) {
   for(int i = 0; i < NUM_LEDS; i++ ) {
     strip.setPixelColor(i, c);
   }
@@ -274,7 +290,7 @@ void setAll(uint32_t c) {
 void CylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, int ReturnDelay){
 
   for(int i = 0; i < NUM_LEDS-EyeSize-2; i++) {
-    setAll(strip.Color(0, 0, 0, 0));
+    setAllC(strip.Color(0, 0, 0, 0));
     strip.setPixelColor(i, red/10, green/10, blue/10);
     for(int j = 1; j <= EyeSize; j++) {
       strip.setPixelColor(i+j, red, green, blue); 
@@ -287,7 +303,7 @@ void CylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, i
   delay(ReturnDelay);
 
   for(int i = NUM_LEDS-EyeSize-2; i > 0; i--) {
-    setAll(strip.Color(0, 0, 0, 0));
+    setAllC(strip.Color(0, 0, 0, 0));
     strip.setPixelColor(i, red/10, green/10, blue/10);
     for(int j = 1; j <= EyeSize; j++) {
       strip.setPixelColor(i+j, red, green, blue); 
