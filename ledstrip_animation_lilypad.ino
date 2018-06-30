@@ -50,7 +50,7 @@ void setup() {
   stripLeft.show();
   stripRight.show();
 
-  setSideColor(strip.Color(100, 0, 200, 0));
+  //setSideColor(strip.Color(100, 0, 200, 0));
 
   prog = EEPROM.read(0);
   if (prog >= nb_prog)
@@ -58,7 +58,7 @@ void setup() {
   else
     prog++;
   EEPROM.write(0,prog);
-  //prog = 8;
+  //prog = 9;
   Serial.begin(115200);
   Serial.println(prog);
 }
@@ -68,50 +68,92 @@ void loop() {
   
   switch (prog) {
     case 0:
-      setAllC(strip.Color(0, 0, 255, 0));
+      // Rainbow Cycle Ring + Sides
+      uint16_t i, j;
+      for(j=0; j<256*5; j++) { // 5 cycles of all colors on wheel
+        for(i=0; i< strip.numPixels(); i++) {
+          strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+          stripLeft.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+          stripRight.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+        }
+        strip.show();
+        stripLeft.show();
+        stripRight.show();
+        delay(5);
+      }
       break;
     case 1:
-      // TODO changer couleurs
-       colorWipe(strip.Color(0, 0, 255), 50); // Red
-       colorWipe(strip.Color(255, 255, 255), 50); // Green
-       colorWipe(strip.Color(255, 0, 0), 50); // Blue
-       break;
-     case 2:
-      rainbow(20);
+      // Rainbow Ring + Sides
+      for(j=0; j<256; j++) {
+        for(i=0; i<strip.numPixels(); i++) {
+          strip.setPixelColor(i, Wheel((i+j) & 255));
+          stripLeft.setPixelColor(i, Wheel((i+j) & 255));
+          stripRight.setPixelColor(i, Wheel((i+j) & 255));
+        }
+        strip.show();
+        stripLeft.show();
+        stripRight.show();
+        delay(20);
+      }
       break;
-     case 3:
+    case 2:
+      // Rainbow Ring only
+      setSideColor(strip.Color(100, 0, 200, 0));
       rainbow(5);
       break;
-     case 4:
-      rainbowCycle(20);
-      break;
-     case 5:
+     case 3:
+      setSideColor(strip.Color(100, 0, 200, 0));
       rainbowCycle(5);
       break;
-     case 6:
+    case 4:
+      rainbowCycle(5);
+      break;
+     case 5:
+      //setSideColor(strip.Color(100, 0, 200, 0));
       theaterChaseRainbow(50);
       break;
-     case 7:
+     case 6:
       // 380 + changement couleur
       CylonBounce(255, 0, 0, 4, 30, 50);
       break;
-     case 8:
+     case 7:
       // changer la couleur 
+      //setSideColor(strip.Color(100, 0, 200, 0));
       RunningLights(0,0,255, 50);
       break;
-     case 9:
+     case 8:
       Fire(55,120,15);
+      //setSideColor(strip.Color(100, 0, 200, 0));
       break;
-     case 10:
+     case 9:
+      // TRON
+      for(i=0; i< strip.numPixels(); i++) {
+        if (i < 8 || i > 10 ) {
+          strip.setPixelColor(i, strip.Color(0, 0, 255, 50));
+        }
+      }
+      strip.show();
+      for(i=16; i < NUM_LEDS-1; i++) {
+        stripLeft.setPixelColor(i, strip.Color(0, 0, 255, 120));
+        stripRight.setPixelColor(i, strip.Color(0, 0, 255, 120));
+      }
+      stripLeft.show();
+      stripRight.show();
+     /*
         for (int color=0; color<255; color++) {
             for (int i=0; i<strip.numPixels(); i++) {
               strip.setPixelColor(i, Wheel(color));
+              stripLeft.setPixelColor(i, Wheel(color));
+              stripRight.setPixelColor(i, Wheel(color));
              }
           strip.show();
-          delay(10);
+          stripLeft.show();
+          stripRight.show();
+          delay(50);
         }
+        */
       break;
-     case 11:
+     case 10:
       colorWave(30);
       colorWipe(strip.Color(0,0,0), 100); // Black
       rainbow(15);
@@ -273,6 +315,13 @@ uint32_t Wheel(byte WheelPos) {
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
 
+void setAll(byte red, byte green, byte blue) {
+  for(int i = 0; i < strip.numPixels(); i++ ) {
+    strip.setPixelColor(i, red, green, blue); 
+  }
+  strip.show();
+}
+
 void setAll(Adafruit_NeoPixel s, uint32_t c) {
   for(int i = 0; i < NUM_LEDS; i++ ) {
     s.setPixelColor(i, c);
@@ -283,8 +332,12 @@ void setAll(Adafruit_NeoPixel s, uint32_t c) {
 void setAllC(uint32_t c) {
   for(int i = 0; i < NUM_LEDS; i++ ) {
     strip.setPixelColor(i, c);
+    stripLeft.setPixelColor(i, c);
+    stripRight.setPixelColor(i, c);
   }
   strip.show();
+  stripLeft.show();
+  stripRight.show();
 }
 
 void CylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, int ReturnDelay){
@@ -292,11 +345,19 @@ void CylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, i
   for(int i = 0; i < NUM_LEDS-EyeSize-2; i++) {
     setAllC(strip.Color(0, 0, 0, 0));
     strip.setPixelColor(i, red/10, green/10, blue/10);
+    stripLeft.setPixelColor(i, red/10, green/10, blue/10);
+    stripRight.setPixelColor(i, red/10, green/10, blue/10);
     for(int j = 1; j <= EyeSize; j++) {
-      strip.setPixelColor(i+j, red, green, blue); 
+      strip.setPixelColor(i+j, red, green, blue);
+      stripLeft.setPixelColor(i+j, red, green, blue);
+      stripRight.setPixelColor(i+j, red, green, blue); 
     }
     strip.setPixelColor(i+EyeSize+1, red/10, green/10, blue/10);
+    stripLeft.setPixelColor(i+EyeSize+1, red/10, green/10, blue/10);
+    stripRight.setPixelColor(i+EyeSize+1, red/10, green/10, blue/10);
     strip.show();
+    stripLeft.show();
+    stripRight.show();
     delay(SpeedDelay);
   }
 
@@ -305,11 +366,19 @@ void CylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, i
   for(int i = NUM_LEDS-EyeSize-2; i > 0; i--) {
     setAllC(strip.Color(0, 0, 0, 0));
     strip.setPixelColor(i, red/10, green/10, blue/10);
+    stripLeft.setPixelColor(i, red/10, green/10, blue/10);
+    stripRight.setPixelColor(i, red/10, green/10, blue/10);
     for(int j = 1; j <= EyeSize; j++) {
-      strip.setPixelColor(i+j, red, green, blue); 
+      strip.setPixelColor(i+j, red, green, blue);
+      stripLeft.setPixelColor(i+j, red, green, blue);
+      stripRight.setPixelColor(i+j, red, green, blue); 
     }
     strip.setPixelColor(i+EyeSize+1, red/10, green/10, blue/10);
+    stripLeft.setPixelColor(i+EyeSize+1, red/10, green/10, blue/10);
+    stripRight.setPixelColor(i+EyeSize+1, red/10, green/10, blue/10);
     strip.show();
+    stripLeft.show();
+    stripRight.show();
     delay(SpeedDelay);
   }
   
